@@ -1,0 +1,112 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+
+  config.vm.box = "ubuntu/trusty64"
+  config.vm.network "private_network", ip: "10.55.55.102"
+  config.vm.synced_folder ".", "/home/vagrant/shared/"
+  config.vm.synced_folder "../data", "/home/vagrant/data/"
+
+  config.vm.provider :virtualbox do |vb|
+    vb.name = "Dev"
+    vb.memory = "8192"
+    vb.cpus = "4"
+  end
+
+  #config.vm.provision "file", source: "conf/sbt.sh", destination: "/home/vagrant/bin/sbt"
+    
+  config.vm.provision "shell", inline: <<-SHELL    
+    #
+    # Update and install basic linux programs for development
+    #
+    set -e
+    set -x
+
+    sudo apt-get update     
+    sudo apt-get install -y wget
+    sudo apt-get install -y curl
+    sudo apt-get install -y vim
+    sudo apt-get install -y git    
+    sudo apt-get install -y build-essential
+    sudo apt-get install -y unzip 
+    sudo apt-get install -y cmake autoconf libtool libboost-all-dev
+    sudo apt-get install -y python-pip python3-dev 
+    #
+    # Downloading the source files
+    #
+    #
+    echo "Downloading source tar files if not already exists..."
+
+    cd /home/vagrant/data
+    echo "Downloding Java ..."
+    if [ ! -f "./jdk-8u45-linux-x64.tar.gz" ] ; then
+      sudo wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u45-b14/jdk-8u45-linux-x64.tar.gz" 
+    fi
+    cp jdk-8u45-linux-x64.tar.gz /opt/.
+
+    echo "Downloading Maven 3.3..."
+    if [ ! -f "./apache-maven-3.3.9-bin.tar.gz" ]; then
+      sudo wget http://mirror.reverse.net/pub/apache/maven/maven-3/3.3.9/binaries/apache-maven-3.3.9-bin.tar.gz 
+    fi
+    cp apache-maven-3.3.9-bin.tar.gz /opt/.
+
+    echo "Downloading Groovy 2.4..."
+    if [ ! -f "./apache-groovy-binary-2.4.8.zip" ]; then
+      sudo wget http://dl.bintray.com/groovy/maven/apache-groovy-binary-2.4.8.zip 
+    fi
+    cp apache-groovy-binary-2.4.8.zip /opt/.
+
+    echo "Downloading Gradle 3.4..."
+    if [ ! -f "./gradle-3.4-bin.zip" ]; then
+      sudo wget https://services.gradle.org/distributions/gradle-3.4-bin.zip 
+    fi
+    cp gradle-3.4-bin.zip /opt/.
+
+    echo "Downloading Scala..."
+    if [ ! -f "./scala-2.12.1.tgz" ]; then
+      sudo wget http://downloads.typesafe.com/scala/2.12.1/scala-2.12.1.tgz 
+    fi
+    cp scala-2.12.1.tgz /opt/.
+
+    echo "Downloading Golang..."
+    if [ ! -f "./go1.8.linux-amd64.tar.gz" ]; then
+      sudo wget https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz
+    fi
+    cp go1.8.linux-amd64.tar.gz /opt/.
+
+
+    cd /opt
+
+    echo "Install Java 8..."
+    sudo tar -xzvf jdk-8u45-linux-x64.tar.gz
+    sudo rm -rf jdk-8u45-linux-x64.tar.gz
+     
+    echo "Instal Maven 3.3..."
+    sudo tar -xzvf apache-maven-3.3.9-bin.tar.gz
+    sudo rm -rf apache-maven-3.3.9-bin.tar.gz
+     
+    echo "Install Groovy 2.4..."
+    sudo unzip apache-groovy-binary-2.4.8.zip -d /opt/
+    sudo rm -rf apache-groovy-binary-2.4.8.zip
+     
+    echo "Install Gradle 3.4..."
+    sudo unzip gradle-3.4-bin.zip -d /opt/
+    sudo rm -rf gradle-3.4-bin.zip 
+     
+    echo "Install Scala 2.12..."
+    sudo tar -xzvf scala-2.12.1.tgz
+    sudo rm -rf scala-2.12.1.tgz
+     
+    echo "Install GO lang 1.8..."
+    sudo tar -xzvf go1.8.linux-amd64.tar.gz
+    sudo rm -rf go1.8.linux-amd64.tar.gz
+
+    #
+    # Source the new bashrc
+    #
+    sudo cat /home/vagrant/shared/bashrc.txt >> /home/vagrant/.bashrc
+    source /home/vagrant/.bashrc
+  SHELL
+
+end

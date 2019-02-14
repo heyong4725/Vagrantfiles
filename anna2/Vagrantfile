@@ -1,0 +1,28 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+VAGRANTFILE_API_VERSION = "2"
+WORKER_NAME_PREFIX = "anna"
+
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  ["1", "2", "3"].each do |n|
+    config.vm.define "anna#{n}" do |anna_config|
+      anna_config.vm.box = "ubuntu/xenial64"
+      anna_config.vm.network "private_network", :ip => "192.168.12.1#{n}"
+#      anna_config.vm.synced_folder ".", "/home/vagrant/shared/"
+
+      vm_name = "%s-%02d" % [WORKER_NAME_PREFIX, n]
+      anna_config.vm.provider :virtualbox do |vb|
+	vb.name = vm_name
+	vb.memory = 4096
+	vb.cpus = 2
+	vb.customize ["modifyvm", :id, "--nic2", "hostonly"]
+	vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+      end
+
+      anna_config.vm.provision :shell, :path => "vm-anna.sh", :args => n
+
+    end
+  end
+end
