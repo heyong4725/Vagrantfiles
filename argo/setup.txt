@@ -1,0 +1,117 @@
+
+
+# setup steps 
+
+sudo apt-get update
+sudo apt-get install -y build-essential autoconf automake libtool curl unzip pkg-config wget 
+
+# need to setup docker environment first
+sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# verify the finger point (last 8 characters)
+sudo apt-key fingerprint 0EBFCD88
+
+# setup the stable repository
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+# install docker 
+sudo apt-get update
+sudo apt-get install docker-ce
+
+# verify that docker run
+sudo docker run hello-world
+
+
+# install kubectl
+curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+chmod +x kubectl && sudo mv kubectl /usr/local/bin/ 
+
+
+# download and install minikube ...
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+chmod +x minikube
+sudo mv minikube /usr/local/bin/
+
+
+export MINIKUBE_WANTUPDATENOTIFICATION=false
+export MINIKUBE_WANTREPORTERRORPROMPT=false
+export MINIKUBE_HOME=$HOME
+export CHANGE_MINIKUBE_NONE_USER=true
+mkdir -p $HOME/.kube
+touch $HOME/.kube/config
+
+export KUBECONFIG=$HOME/.kube/config
+
+#minikube start --cpus 4 --memory 8096 --disk-size=40g
+sudo -E minikube start --vm-driver=none
+
+# this for loop waits until kubectl can access the api server that Minikube has created
+for i in {1..150}; do # timeout for 5 minutes
+   kubectl get po &> /dev/null
+   if [ $? -ne 1 ]; then
+      break
+   fi
+   sleep 2
+done
+
+# kubectl commands are now able to interact with Minikube cluster
+kubectl run hello-minikube --image=k8s.gcr.io/echoserver:1.4 --port=8080
+kubectl expose deployment hello-minikube --type=NodePort
+kubectl get pod
+curl $(minikube service hello-minikube --url)
+
+
+# delete the cluster if need to
+sudo minikube delete
+
+kubectl get ns
+kubectl get all
+kubectl get pods
+
+
+################# Argo Workflow ################
+
+# download argo
+#curl -sSL -o /usr/local/bin/argo https://github.com/argoproj/argo/releases/download/v2.2.0/argo-linux-amd64
+curl -Lo argo https://github.com/argoproj/argo/releases/download/v2.2.0/argo-linux-amd64
+chmod +x argo
+sudo mv argo /usr/local/bin
+
+# install the argo controller and UI
+kubectl create ns argo
+kubectl apply -n argo -f https://raw.githubusercontent.com/argoproj/argo/v2.2.0/manifests/install.yaml
+
+# configure the service account to run workflows - using default
+# For clusters with RBAC enabled, the 'default' service account is too limited to support features like 
+# artifacts, outputs, access to secrets, etc... Run the following command to grant admin privileges to i
+# the 'default' service account in the namespace 'default':
+
+kubectl create rolebinding default-admin --clusterrole=admin --serviceaccount=default:default
+
+# or we can also  submit workflows which run with a different service account using:
+argo submit --serviceaccount <name>
+
+# run some simple example workflows
+
+argo submit --watch https://raw.githubusercontent.com/argoproj/argo/master/examples/hello-world.yaml
+argo submit --watch https://raw.githubusercontent.com/argoproj/argo/master/examples/coinflip.yaml
+argo submit --watch https://raw.githubusercontent.com/argoproj/argo/master/examples/loops-maps.yaml
+argo list
+argo get xxx-workflow-name-xxx
+argo logs xxx-pod-name-xxx #from get command above
+
+
+
+
+
+################# Pachyderm ####################
+# pachyderm install - this is a data pipeline tool used in Kubeflow
+curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.7/pachctl_1.7.7_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+
+# deploy pachyderm in local env, e.g. minikube
+pachctl deploy local
+
+# background this process since port forwarding blocks
+pachctl port-forward &
+

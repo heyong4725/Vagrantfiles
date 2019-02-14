@@ -1,0 +1,42 @@
+
+# build go client library 
+# https://golang.org/doc/install
+# https://golang.org/doc/code.html
+
+cd /vagrant
+sudo tar -C /usr/local -xzf go1.11.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+export GOPATH=/vagrant/go
+
+# add go program bin of my workspace into the PATH
+export PATH=$PATH:$(go env GOPATH)/bin
+
+# example prometheus go client code
+# Fetch the client library code and compile example.
+mkdir go
+cd go
+mkdir bin
+mkdir pkg
+mkdir src
+
+# get the server
+go get github.com/nats-io/gnatsd
+
+# get the client
+go get github.com/nats-io/go-nats
+go get -d
+go build
+
+# get the nats streaming server
+cd /vagrant/go/src/github.com/nats-io/
+git clone https://github.com/nats-io/nats-streaming-server.git
+cd nats-streaming-server
+go get -d
+go build
+
+./nats-streaming-server
+
+
+
+
+

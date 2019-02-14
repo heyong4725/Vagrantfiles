@@ -1,0 +1,59 @@
+
+
+# setup steps for anna build (on all three anna instance: ann1, anna2, anna3)
+
+cd
+sudo apt-get update
+sudo apt-get install -y build-essential autoconf automake libtool curl make g++ unzip pkg-config wget clang-3.9
+sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.9 1
+sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.9 1
+sudo apt-get install -y libc++-dev libc++abi-dev libtbb-dev
+
+# install CMake
+
+wget https://cmake.org/files/v3.9/cmake-3.9.4-Linux-x86_64.tar.gz
+tar xvzf cmake-3.9.4-Linux-x86_64.tar.gz
+sudo mv cmake-3.9.4-Linux-x86_64 /usr/bin/cmake
+export PATH=$PATH:/usr/bin/cmake/bin
+
+# install protobuf
+
+# fix compiler err by edit following file line 21 to include path /usr/include/libcxxabi
+# sudo vi /usr/include/c++/v1/cxxabi.h or
+sudo cp /usr/include/libcxxabi/__cxxabi_config.h /usr/include/c++/v1/.
+
+git clone https://github.com/google/protobuf.git
+cd protobuf
+git submodule update --init --recursive
+./autogen.sh
+./configure CXX=clang++ CXXFLAGS='-std=c++11 -stdlib=libc++ -O3 -g'
+make
+make check
+sudo make install
+sudo ldconfig
+
+# clone anna and build it
+cd 
+git clone https://github.com/cw75/anna.git
+cd anna
+
+# before running the following build command, fix the TBB CMakeLists.txt library path issue
+# to make sure the correct tbb lib path
+# vi ./vendor/tbb/CMakeLists.txt, change to
+# linux_intel64_clang_cc5.4.0_libc2.23_kernel4.4.0_release
+# notice that somehow the tbb cannot build in /vagrant dirrectoy due to Vagrant permission issue
+
+bash scripts/build_release.sh
+
+
+
+
+
+
+
+
+
+
+
+
+

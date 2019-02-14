@@ -1,0 +1,20 @@
+
+# for production, need to modify some kernel parameters
+
+ulimit -n
+root soft nofile 65536
+
+# install fluentd package
+
+sudo apt-get update
+curl -L https://toolbelt.treasuredata.com/sh/install-ubuntu-xenial-td-agent3.sh | sh
+
+# start the logging service
+sudo systemctl start td-agent.service
+sudo systemctl status td-agent.service
+
+# test the simple log
+curl -X POST -d 'json={"json":"message"}' http://localhost:8888/debug.test
+ls /var/log/td-agent/td-agent.log
+more /var/log/td-agent/td-agent.log
+

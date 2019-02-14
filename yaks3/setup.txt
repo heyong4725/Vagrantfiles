@@ -1,0 +1,53 @@
+
+
+cd /vagrant
+./all.sh
+
+export PATH="/vagrant/cmake/cmake-3.11.0-Linux-x86_64/bin:$PATH"
+
+# on Windows machine, do
+export PATH="/c/Program Files/CMake/bin:$PATH"
+
+# more dependencies
+
+pip3 install imutils 
+pip3 install opencv-python 
+pip3 install opencv-contrib-python
+pip3 install jsonpickle
+
+sudo apt -y install libsm6 libxext6 
+
+# build YAKS python binding dependencies
+pip3 install yaks
+
+# build example code face_recognition python dependencies
+pip3 install face_recognition
+
+# to run docker from a tar file
+
+1.Setup a docker registry:
+docker run -d -p 5000:5000 --restart=always --name registry registry:2
+
+2.load the file 
+docker -D load -i  xxxxx.tar.gz
+
+3.check the images:
+docker images
+
+4.find the docker ID loaded
+
+5.Finally:
+$docker run dockerid ash 
+
+
+
+
+
+
+
+
+
+
+
+
+

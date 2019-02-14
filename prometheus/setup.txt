@@ -1,0 +1,54 @@
+
+# download prometheus binary and extract it
+cd /vagrant
+tar xvfz prometheus-2.4.0.linux-amd64.tar.gz
+cd prometheus-2.4.0.linux-amd64
+vi prometheus.yml
+./prometheus --config.file=prometheus.yml
+
+# build go client library 
+# https://golang.org/doc/install
+# https://golang.org/doc/code.html
+
+sudo tar -C /usr/local -xzf go1.11.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+export GOPATH=/vagrant/go
+
+# add go program bin of my workspace into the PATH
+export PATH=$PATH:$(go env GOPATH)/bin
+
+# example prometheus go client code
+# Fetch the client library code and compile example.
+mkdir go
+cd go
+git clone https://github.com/prometheus/client_golang.git
+cd client_golang/examples/random
+go get -d
+go build
+
+# Start 3 example targets in separate terminals:
+./random -listen-address=:8080
+./random -listen-address=:8081
+./random -listen-address=:8082
+
+# create random.yml file as example
+./prometheus --config.file=random.yml
+
+# integration with grafana
+
+# Download and unpack Grafana from binary tar (adjust version as appropriate).
+curl -L -O https://grafanarel.s3.amazonaws.com/builds/grafana-2.5.0.linux-x64.tar.gz
+tar zxf grafana-2.5.0.linux-x64.tar.gz
+
+# Start Grafana.
+cd grafana-2.5.0/
+./bin/grafana-server web
+
+
+# build Jaeger (tracing tool) from source
+cd $GOPATH/src
+git clone https://github.com/jaegertracing/jaeger.git
+cd jaeger
+make install
+cd examples/hotrod
+go run ./main.go all

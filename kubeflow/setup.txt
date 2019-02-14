@@ -1,0 +1,176 @@
+
+
+# setup steps 
+
+sudo apt-get update
+sudo apt-get install -y build-essential autoconf automake libtool curl unzip pkg-config wget 
+
+# need to setup docker environment first
+sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# verify the finger point (last 8 characters)
+sudo apt-key fingerprint 0EBFCD88
+
+# setup the stable repository
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+# install docker 
+sudo apt-get update
+sudo apt-get install docker-ce
+
+# verify that docker run
+sudo docker run hello-world
+
+
+# download and install kubectl ...
+#curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+#sudo touch /etc/apt/sources.list.d/kubernetes.list
+#echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
+#sudo apt-get update
+#sudo apt-get install -y kubectl
+
+curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+chmod +x kubectl && sudo mv kubectl /usr/local/bin/ 
+
+
+# download and install minikube ...
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+chmod +x minikube
+sudo mv minikube /usr/local/bin/
+
+
+export MINIKUBE_WANTUPDATENOTIFICATION=false
+export MINIKUBE_WANTREPORTERRORPROMPT=false
+export MINIKUBE_HOME=$HOME
+export CHANGE_MINIKUBE_NONE_USER=true
+mkdir -p $HOME/.kube
+touch $HOME/.kube/config
+
+export KUBECONFIG=$HOME/.kube/config
+
+#minikube start --cpus 4 --memory 8096 --disk-size=40g
+sudo -E minikube start --vm-driver=none
+
+# this for loop waits until kubectl can access the api server that Minikube has created
+for i in {1..150}; do # timeout for 5 minutes
+   kubectl get po &> /dev/null
+   if [ $? -ne 1 ]; then
+      break
+   fi
+   sleep 2
+done
+
+# kubectl commands are now able to interact with Minikube cluster
+kubectl run hello-minikube --image=k8s.gcr.io/echoserver:1.4 --port=8080
+kubectl expose deployment hello-minikube --type=NodePort
+kubectl get pod
+curl $(minikube service hello-minikube --url)
+
+# install istio
+curl -L https://git.io/getLatestIstio | sh -
+cd istio-1.0.2
+
+# The installation directory contains:
+
+#   Installation .yaml files for Kubernetes in install/
+#   Sample applications in samples/
+#   The istioctl client binary in the bin/ directory. istioctl is used when manually injecting Envoy as a sidecar proxy and for creating routing rules and policies.
+#   The istio.VERSION configuration file
+
+# Add the istioctl client to your PATH environment variable
+export PATH=$PWD/bin:$PATH
+cd istio-1.0.1/bin
+sudo cp istioctl /usr/local/bin/
+cd
+which istioctl
+
+# Install Istios Custom Resource Definitions via kubectl apply, and wait a few seconds for the CRDs to 
+# be committed in the kube-apiserver
+cd istio-1.0.1/
+kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
+
+# To install Istio without mutual TLS authentication between sidecars:
+kubectl apply -f install/kubernetes/istio-demo.yaml
+
+# Verifying the installation
+kubectl get svc -n istio-system
+
+# Ensure the corresponding Kubernetes pods are deployed and all containers are up and running
+kubectl get pods -n istio-system
+
+# install Kubeflow
+curl -O https://raw.githubusercontent.com/kubeflow/kubeflow/v0.2-branch/bootstrap/bootstrapper.yaml
+kubectl create -f bootstrapper.yaml
+
+# verify kubeflow setup
+kubectl get ns
+kubectl -n kubeflow get svc
+
+# setup port forwarding for the central dashboard UI and Jupyter Hub
+POD=`kubectl -n kubeflow get pods --selector=service=ambassador | awk '{print $1}' | tail -1`
+kubectl -n kubeflow port-forward $POD 8080:80 2>&1 >/dev/null &
+POD=`kubectl -n kubeflow get pods --selector=app=tf-hub | awk '{print $1}' | tail -1`
+kubectl -n kubeflow port-forward $POD 8000:8000 2>&1 >/dev/null &
+
+
+# install Ksonnet
+tar xvf ks_0.12.0_linux_amd64.tar.gz
+cd ks_0.12.0_linux_amd64
+sudo cp ks /usr/local/bin
+which ks
+ks --help
+
+# creating a ksonnet application
+
+export KS_VER=0.12.0
+export KS_PKG=ks_${KS_VER}_linux_amd64
+
+export KUBEFLOW_VERSION=0.2.2
+export KUBEFLOW_KS_DIR=${HOME}/ks-kubeflow # </path/to/store/your/ksonnet/application>
+export KUBEFLOW_DEPLOY=false
+
+# this will create a ksonnet application in ${KUBEFLOW_KS_DIR}
+curl https://raw.githubusercontent.com/kubeflow/kubeflow/v${KUBEFLOW_VERSION}/scripts/deploy.sh | bash
+
+# to disable usage collection you can run the following commands
+#cd ${KUBEFLOW_KS_DIR}
+#ks param set spartakus reportUsage false
+
+# deploy kubeflow
+cd ${KUBEFLOW_KS_DIR}
+ks apply default
+
+ks env add nocloud
+KF_ENV=nocloud
+
+# install Katib (Katib is a hyperparameter tuning framework, inspired by Google Vizier.)
+ks pkg install kubeflow/katib@master
+ks generate katib katib
+ks apply ${ENV} -c katib
+
+# create namespace katib as the service launches jobs in this namespace
+kubectl create namespace katib
+
+
+# TensorFlow Serving
+# Generate Tensorflow model server component
+MODEL_COMPONENT=serveInception
+MODEL_NAME=inception
+ks generate tf-serving ${MODEL_COMPONENT} --name=${MODEL_NAME}
+
+# google cloud
+MODEL_PATH=gs://kubeflow-models/inception
+ks param set ${MODEL_COMPONENT} modelPath ${MODEL_PATH}
+
+
+
+# pachyderm install - this is a data pipeline tool used in Kubeflow
+curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.7/pachctl_1.7.7_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+
+# deploy pachyderm in local env, e.g. minikube
+pachctl deploy local
+
+# background this process since port forwarding blocks
+pachctl port-forward &
+

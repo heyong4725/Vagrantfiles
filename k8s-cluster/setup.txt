@@ -1,0 +1,14 @@
+
+# https://github.com/pires/kubernetes-vagrant-coreos-cluster#tldr
+
+git config --global core.autocrlf false
+git config --global core.eol lf
+git clone https://github.com/pires/kubernetes-vagrant-coreos-cluster.git
+git config --global core.autocrlf true
+git config --global core.eol crlf
+
+# windows plugin required
+vagrant plugin install vagrant-winnfsd
+
+vagrant up
+

@@ -1,0 +1,29 @@
+
+# setup golang env
+cd /vagrant
+sudo tar -C /usr/local -xzf go1.11.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+export GOPATH=/vagrant/go
+export PATH=$PATH:$(go env GOPATH)/bin
+
+# OS env
+
+sudo apt-get install git
+sudo apt-get update
+sudo apt-get install -y redis-server
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv EA312927
+sudo apt-get update
+sudo apt-get install debian-archive-keyring
+sudo apt-get install curl gnupg apt-transport-https
+
+# get tyk api gateway
+cd /vagrant/go
+go get -d github.com/TykTechnologies/tyk
+
+cd src/github.com/TykTechnologies/tyk
+go build
+
+# run api gateway
+./install/setup.sh --listenport=8080 --redishost=localhost --redisport=6379 --domain=""
+
+

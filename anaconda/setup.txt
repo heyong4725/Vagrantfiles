@@ -1,0 +1,132 @@
+
+#Python 2.7
+
+cd /vagrant
+sha256sum Anaconda2-5.0.0.1-Linux-x86_64.sh
+bash Anaconda2-5.0.0.1-Linux-x86_64.sh
+cd
+source ./.bashrc
+
+conda list
+
+# we can check to see which versions of Python are available for us to use
+conda search "^python$"
+
+# You'll receive output with the different versions of Python that you can target, including both Python 3 
+# and Python 2 versions. Since we are using the Anaconda with Python 2.7 in this setup, you will have access 
+# only to the Python 2.7 versions of packages.
+
+# Lets create an environment using the most recent version of Python 2.7. We can achieve this by assigning 
+# version 2.7 to the python argument. We'll call the environment my_env, but youll likely want to use a 
+# more descriptive name for your environment especially if you are using environments to access more than 
+# one version of Python
+
+conda create --name my_env python=2.7
+
+#
+# To activate this environment, use:
+source activate my_env
+
+#
+# To deactivate an active environment, use:
+source deactivate
+#
+
+
+# To target a more specific version of Python, you can pass a specific version to the python argument, 
+# like 3.5, for example
+conda create -n my_env35 python=3.5
+
+# you can update the python along the same branch
+
+conda update python
+
+
+# you can inspect all of the environments you have setup
+
+conda info --envs
+
+# Each envs you have created with "conda create" comes with default packages: openssl, pip, ...
+
+# you can add additional packages, e.g. numpy, with the following command:
+
+conda install --name my_env35 numpy
+
+# or during the create environment stage, shown below:
+
+conda create --name my_env python=3 numpy
+
+# If you are no longer working on a specific project and have no further need for the associated environment, 
+# you can remove it. To do so, type the following:
+
+conda remove --name my_env35 --all
+
+# Updating Anaconda
+
+conda update conda
+conda update anaconda
+
+# Uninstalling Anaconda
+
+conda install anaconda-clean
+anaconda-clean
+rm -rf ~/anaconda3
+
+# edit .bashrc to remove the PATH
+nano ~/.bashrc
+
+
+############ Machine Learning ################
+
+conda info --envs
+source activate my_env35
+cd /vagrant
+export ML_PATH="/vagrant/ml"
+mkdir -p $ML_PATH
+cd ml
+git clone https://github.com/ageron/handson-ml.git
+
+cd handson-ml
+conda install --name my_env35 numpy jupyter matplotlib
+conda install --name my_env35 pandas scipy scikit-learn
+conda list
+
+# check the packages are installed
+python -c "import jupyter, matplotlib, numpy, pandas, scipy, scipy, sklearn"
+
+
+jupyter notebook
+
+########### Ray #################
+
+conda info --envs
+source activate my_env35
+cd /vagrant
+sudo apt-get update
+sudo apt-get install -y cmake pkg-config build-essential autoconf curl libtool unzip
+pip install cmake
+pip install numpy cloudpickle funcsigs click colorama psutil redis flatbuffers cython
+conda install libgcc
+
+# clone ray
+git clone https://github.com/ray-project/ray.git
+cd ray/python
+python setup.py install
+
+
+# or simply install ray
+pip install ray
+
+
+# run test (runtest.py in source tree ray/test)
+python runtest.py
+
+
+
+
+
+
+
+
+
+

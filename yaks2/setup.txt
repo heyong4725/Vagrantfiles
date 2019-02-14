@@ -1,0 +1,125 @@
+
+# cdds.io
+
+cd /vagrant
+./all.sh
+
+export PATH="/vagrant/cmake/cmake-3.11.0-Linux-x86_64/bin:$PATH"
+
+git clone https://github.com/atolab/cdds.git
+ls
+cd cdds
+mkdir build
+cd build
+cmake ../src
+make
+sudo make install
+
+
+cd ../..
+cd cdds/src/examples/roundtrip
+mkdir build
+cd build
+cmake ..
+make
+ls
+# start Pong in one terminal
+./RoundtripPong
+# start Ping in another terminal
+./RoundtripPing 0 0 0
+
+cd /vagrant
+git clone https://github.com/atolab/python-cdds.git
+cd python-cdds
+
+./configure
+
+# setup Python 3 DDS binding environement
+sudo python3 setup.py install
+
+# install Vortex Link
+
+cd VortexLink-3.0.0-SNAPSHOT/
+java -jar lib/link-service.jar
+cp examples/config/04-lan-to-lan-with-NAT-hosts/link_1.properties ./link.properties
+# edit TCP IP address
+vim link.properties
+ifconfig
+vim link.properties
+
+java -jar -Dvortex_link.properties=link.properties -Dloglevel=DEBUG lib/link-service.jar
+
+# now install DStore
+cd /vagrant
+git clone https://github.com/atolab/python-dstore.git
+ls
+cd python-dstore
+ls
+sudo python3 setup.py install
+
+python3
+>>>from dstore import Store
+>>>s=Store("Yong", "/", "/h/Yong", 1024)
+
+s=Store("yh", "/", "/h/yh", 100)
+s.resolveAll("/*")
+s.get("/h/ac/msg")
+s.get("/h/ac/msg")
+s.get("/h/ac/msg")
+s.resolve("/h/ac/msg")
+s.get("/h/yh/msg")
+s.get("/h/yh/msg")
+s.get("/h/yh/hmsg")
+s.discovered_stores
+
+
+####
+>>> s.
+s._Store__cache_size              s.__le__(                         s.get_version(
+s._Store__check_writing_rights(   s.__lt__(                         s.home
+s._Store__controller              s.__module__                      s.is_cached_value(
+s._Store__get_keys_under(         s.__ne__(                         s.is_stored_value(
+s._Store__get_stores(             s.__new__(                        s.iterate(
+s._Store__is_metaresource(        s.__reduce__(                     s.keys(
+s._Store__local_cache             s.__reduce_ex__(                  s.logger
+s._Store__metaresources           s.__repr__(                       s.miss_handler(
+s._Store__observers               s.__setattr__(                    s.next_version(
+s._Store__store                   s.__sizeof__(                     s.notify_observers(
+s._Store__unchecked_store_value(  s.__str__(                        s.observe(
+s.__class__(                      s.__subclasshook__(               s.on_store_disappeared(
+s.__delattr__(                    s.__weakref__                     s.on_store_discovered(
+s.__dict__                        s.close(                          s.pput(
+s.__dir__(                        s.conflict_handler(               s.put(
+s.__doc__                         s.data_merge(                     s.register_metaresource(
+s.__eq__(                         s.discovered_stores               s.remote_remove(
+s.__format__(                     s.dot2dict(                       s.remove(
+s.__ge__(                         s.dput(                           s.resolve(
+s.__getattribute__(               s.get(                            s.resolveAll(
+s.__gt__(                         s.getAll(                         s.root
+s.__hash__(                       s.get_metaresources(              s.store_id
+s.__init__(                       s.get_value(                      s.update_value(
+>>> s.discovered_stores
+['JE', 'gb', 'habib', 'ac']
+>>> s.put("/h/habib/msg", "hello")
+0
+>>> s.get('/h/ac/xs')
+>>> x= s.get('/h/ac/xs')
+>>> x
+'[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]'
+>>> import jsonpickle
+>>> xs = jsonpickle.decode(x)
+>>> xs
+[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+###
+
+
+
+
+
+
+
+
+
+
+

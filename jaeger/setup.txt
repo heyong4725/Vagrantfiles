@@ -1,0 +1,92 @@
+
+###### setup the docker environment ######
+
+sudo apt-get update
+sudo apt-get install -y build-essential autoconf automake libtool curl unzip pkg-config wget
+
+# need to setup docker environment first
+sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# verify the finger point (last 8 characters)
+sudo apt-key fingerprint 0EBFCD88
+
+# setup the stable repository
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+# install docker
+sudo apt-get update
+sudo apt-get install docker-ce
+
+# verify that docker run
+sudo docker run hello-world
+
+
+######### setup golang environment ########## 
+cd /vagrant
+
+# build go client library 
+# https://golang.org/doc/install
+# https://golang.org/doc/code.html
+
+sudo tar -C /usr/local -xzf go1.11.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+export GOPATH=/vagrant/go
+
+# add go program bin of my workspace into the PATH
+export PATH=$PATH:$(go env GOPATH)/bin
+
+
+####### all-in-one Jaeger docker setup ###############
+
+sudo docker run -d --name jaeger \
+  -e COLLECTOR_ZIPKIN_HTTP_PORT=9411 \
+  -p 5775:5775/udp \
+  -p 6831:6831/udp \
+  -p 6832:6832/udp \
+  -p 5778:5778 \
+  -p 16686:16686 \
+  -p 14268:14268 \
+  -p 9411:9411 \
+  jaegertracing/all-in-one:1.6
+
+## navigate to http://localhost:16686 to access the Jaeger UI
+
+## run sample HotRod docker ###
+
+sudo docker run --rm -it \
+  --link jaeger \
+  -p8080-8083:8080-8083 \
+  jaegertracing/example-hotrod:1.6 \
+  --jaeger-agent.host-port=jaeger:6831 \
+  all
+
+## navigate to http://localhost:8080 to access the Jaeger UI
+
+####### build Jaeger (tracing tool) from source #######
+cd $GOPATH/src
+git clone https://github.com/jaegertracing/jaeger.git
+cd jaeger
+make install
+cd examples/hotrod
+go run ./main.go all
+
+
+# another simple example
+# Start Jaeger locally
+$ docker run -d -p 5775:5775/udp -p 16686:16686 jaegertracing/all-in-one:latest
+$ export DOCKER_IP=`docker-machine ip $(docker-machine active)`
+$ cd $GOPATH/src
+
+# Grab a simple, self-contained OpenTracing example
+$ go get github.com/opentracing-contrib/examples/go
+$ cd github.com/opentracing-contrib/examples/go
+$ go run ./trivial.go $DOCKER_IP
+
+# Visualize the tracing instrumentation in Jaeger by
+# clicking on "Find Traces" in the UI.
+$ open http://$DOCKER_IP:16686/
+
+# Read the source!
+$ vim trivial.go
+

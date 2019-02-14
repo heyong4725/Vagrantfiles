@@ -1,0 +1,99 @@
+
+
+# setup steps 
+
+sudo apt-get update
+sudo apt-get install -y build-essential autoconf automake libtool curl unzip pkg-config wget 
+
+# need to setup docker environment first
+sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# verify the finger point (last 8 characters)
+sudo apt-key fingerprint 0EBFCD88
+
+# setup the stable repository
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+# install docker 
+sudo apt-get update
+sudo apt-get install docker-ce
+
+# verify that docker run
+sudo docker run hello-world
+
+# download and install kubectl ...
+curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl \
+    && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/latest/bin/linux/amd64/kubectl \
+    && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+# ... and minikube
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 \
+        && chmod +x minikube && sudo mv minikube /usr/local/bin/
+
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
+        && chmod +x minikube && sudo mv minikube /usr/local/bin/
+
+# start minikube ...
+sudo -E minikube start \
+    --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
+        --kubernetes-version=v1.7.5 --vm-driver=none
+
+# set the kubectl context to minikube (this overwrites ~/.kube and ~/.minikube, but leaves files' ownership as root:root)
+sudo -E minikube update-context
+
+# either use sudo on all kubectl commands, or chown/chgrp to your user
+# sudo chown -R $USER $HOME/.kube && sudo chgrp -R $USER $HOME/.kube \
+#    && sudo chown -R $USER $HOME/.minikube && sudo chgrp -R $USER $HOME/.minikube
+
+# this will write over any previous configuration)
+# wait for the cluster to become ready/accessible via kubectl
+JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; \
+    until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
+
+sudo -E kubectl cluster-info
+
+# terminate minikube cluster
+sudo -E minikube stop
+
+# The below assumes that all and only containers created by minikube have a name prefixed with k8s_
+
+alias minikube-kill = `docker rm $(docker kill $(docker ps -a --filter="name=k8s_" --format="{{.ID}}"))`
+alias minikube-stop = `docker stop $(docker ps -a --filter="name=k8s_" --format="{{.ID}}")`
+
+
+
+# Linux bash
+
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube && sudo cp minikube /usr/local/bin/ && rm minikube
+curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x kubectl && sudo cp kubectl /usr/local/bin/ && rm kubectl
+
+export MINIKUBE_WANTUPDATENOTIFICATION=false
+export MINIKUBE_WANTREPORTERRORPROMPT=false
+export MINIKUBE_HOME=$HOME
+export CHANGE_MINIKUBE_NONE_USER=true
+mkdir -p $HOME/.kube
+touch $HOME/.kube/config
+
+export KUBECONFIG=$HOME/.kube/config
+sudo -E minikube start --vm-driver=none
+
+# this for loop waits until kubectl can access the api server that Minikube has created
+for i in {1..150}; do # timeout for 5 minutes
+   kubectl get po &> /dev/null
+   if [ $? -ne 1 ]; then
+      break
+   fi
+   sleep 2
+done
+
+# kubectl commands are now able to interact with Minikube cluster
+
+
+
+
+
+
+

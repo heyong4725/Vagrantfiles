@@ -1,0 +1,72 @@
+
+
+# setup steps 
+
+sudo apt-get update
+sudo apt-get install -y build-essential autoconf automake libtool curl unzip pkg-config wget 
+sudo apt-get install -y cmake realpath automake ninja-build
+
+# CLANG
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
+sudo apt-get install clang
+
+# download the Bazel binary installer bazel-<version>-installer-linux-x86_64.sh from the Bazel releases on GitHub.
+# https://github.com/bazelbuild/bazel/releases
+cd /vagrant
+chmod +x bazel-0.17.2-installer-linux-x86_64.sh
+./bazel-0.17.2-installer-linux-x86_64.sh --user
+
+# --user flag will install bazel executables in $HOME/bin directory, so add the PATH
+export PATH="$PATH:$HOME/bin"
+
+# install bazel build tool
+sudo apt-get install -y pkg-config zip g++ zlib1g-dev unzip python
+
+# install golang toolchain
+# https://golang.org/doc/install
+# https://golang.org/doc/code.html
+
+sudo tar -C /usr/local -xzf go1.11.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+export GOPATH=/vagrant/go
+
+# add go program bin of my workspace into the PATH
+export PATH=$PATH:$(go env GOPATH)/bin
+
+# install buildifier
+go get github.com/bazelbuild/buildtools/buildifier
+
+# clong the envoy source tree
+# git clone https://github.com/envoyproxy/envoy.git
+go get github.com/envoyproxy/envoy
+
+# using bazel to build envoy from source
+cd /vagrant/go/src/github.com/envoyproxy/envoy
+bazel build //source/exe:envoy-static
+
+# or Building Bazel with the CI Docker image
+
+# need to setup docker environment first
+sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# verify the finger point (last 8 characters)
+sudo apt-key fingerprint 0EBFCD88
+
+# setup the stable repository
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+# install docker 
+sudo apt-get update
+sudo apt-get install docker-ce
+
+# verify that docker run
+sudo docker run hello-world
+
+# Building Bazel with the CI Docker image
+./ci/run_envoy_docker.sh './ci/do_ci.sh bazel.dev'
+
+
+
+
+

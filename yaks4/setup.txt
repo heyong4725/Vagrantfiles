@@ -1,0 +1,200 @@
+
+# Step 1 Preparing the systems
+
+sudo yum -y update
+sudo yum -y install yum-utils
+sudo yum -y groupinstall development
+sudo yum -y install openssl-devel sqlite-devel
+
+# Step 2 - installing and setup python 3 activate virtual environment
+
+sudo yum -y install https://centos7.iuscommunity.org/ius-release.rpm
+sudo yum -y install python36u
+python3.6 -V
+
+sudo yum -y install python36u-pip
+sudo yum -y install python36u-devel
+
+python3.6 -m venv poc
+source poc/bin/activate
+
+# create a simple program / poc yaks program
+
+hello.py
+print("Hello, World!")
+
+python hello.py
+
+# Step 3 - now install yaksd and zenohd for CentOS 
+cd
+cp /vagrant/yaks-0.2.4.tar.gz .
+tar xvf yaks-0.2.4.tar.gz
+
+// install yaks API
+pip install yaks
+
+// clone yaks-python examples
+git clone https://github.com/atolab/yaks-python.git
+
+
+// setup 3 nodes zenoh network
+ping 192.168.10.102
+ping 192.168.10.103
+ping 192.168.10.101
+
+cd yaks-0.2.4
+
+// change ./bin/* executable permission in case it is not set
+
+chmod 777 ./bin/*
+
+// on 192.168.10.101
+./bin/zenohd --verbosity=debug &
+./bin/zenohd &
+
+// on 192.168.10.102
+./bin/zenohd --verbosity=debug --peers=tcp/192.168.10.101:7447 &
+./bin/zenohd --peers=tcp/192.168.10.101:7447 &
+
+// on 192.168.10.103
+./bin/zenohd --verbosity=debug --peers=tcp/192.168.10.101:7447,tcp/192.168.10.102:7447&
+./bin/zenohd --peers=tcp/192.168.10.101:7447,tcp/192.168.10.102:7447&
+
+
+// setup yaks instance attached to zenoh daemon
+// Notice that we use the -w option below to ensure that YAKS does not create 
+// any default storages on /**.
+
+// on 192.168.10.101
+./bin/yaksd -w --verbosity=debug --zenoh=tcp/127.0.0.1:7447 &
+./bin/yaksd -w --zenoh=tcp/127.0.0.1:7447 &
+
+// on 192.168.10.102
+./bin/yaksd -w --verbosity=debug --zenoh=tcp/127.0.0.1:7447 &
+./bin/yaksd -w --zenoh=tcp/127.0.0.1:7447 &
+
+// on 192.168.10.103
+./bin/yaksd -w --verbosity=debug --zenoh=tcp/127.0.0.1:7447 &
+./bin/yaksd -w --zenoh=tcp/127.0.0.1:7447 &
+
+# RESTful API
+
+curl -X PUT -d '{"selector":"/demo/astore/**"}' http://localhost:8000/@/local/backend/Memory/storage/astore
+curl http://localhost:8000/@/*
+curl http://localhost:8000/@/local/backend/**
+curl http://localhost:8000/@/local/backend/Memory
+curl http://localhost:8000/@/local/backend/Memory/**
+curl http://localhost:8000/@/local/backend/Memory/demo/**
+curl http://localhost:8000/@/local/backend/Memory/storage/**
+curl -X PUT -d '{"msg":"ciao"}' http://localhost:8000/demo/astore/greeting
+curl http://localhost:8000/demo/**
+
+
+# test some python YAKS API
+
+// on 192.168.10.101
+
+python
+
+from yaks import *
+from papero import Property
+
+def obs(kvs):
+    print('Called OBSERVER KVS: {}'.format(kvs))
+
+def evcb(path, param):
+    print('W1-Executing eval on {}'.format(path))
+    return Value('executed {}'.format(param))
+
+y = Yaks.login('127.0.0.1')
+adm = y.admin()
+s = adm.add_storage('W1-Store', [Property('selector', '/demo/w1/**')], beid='Memory')
+ws = y.workspace('/demo/w1') 
+
+sid = ws.subscribe('/demo/w1/**', obs)
+
+ws.register_eval('/demo/compute1', evcb)
+
+ws.put('/demo/w1/uno', Value('w1-uno'))
+ws.put('yh', Value('Yong'))
+ws.put('/demo/w2/due', Value('ac-due'))
+ws.put('/demo/w3/tre', Value('ac-tre'))
+ws.get('/demo/**')
+
+
+ws.put('/demo/w1/hello', Value('Hello from work-1 !', encoding=Encoding.STRING))
+ws.put('/demo/w2/hello', Value('Hello from work-2 !', encoding=Encoding.STRING))
+ws.put('/demo/w3/hello', Value('Hello from work-3 !', encoding=Encoding.STRING))
+
+ws.eval('/demo/compute1?(param=1)')
+ws.eval('/demo/compute2?(param=2)')
+ws.eval('/demo/compute3?(param=3)')
+ws.eval('/demo/**?(param=0)')
+
+// on 192.168.10.102
+
+python
+
+from yaks import *
+from papero import Property
+
+def obs(kvs):
+    print('Called OBSERVER KVS: {}'.format(kvs))
+
+def evcb(path, param):
+    print('W2-Executing eval on {}'.format(path))
+    return Value('executed {}'.format(param))
+
+
+y = Yaks.login('127.0.0.1')
+adm = y.admin()
+s = adm.add_storage('W2-Store', [Property('selector', '/demo/w2/**')], beid='Memory')
+ws = y.workspace('/demo/w2') 
+
+sid = ws.subscribe('/demo/w2/**', obs)
+
+ws.register_eval('/demo/compute2', evcb)
+
+ws.put('/demo/w1/uno', Value('w1-uno'))
+ws.put('/demo/w2/due', Value('ac-due'))
+ws.put('/demo/w3/tre', Value('ac-tre'))
+ws.get('/demo/**')
+
+
+
+// on 192.168.10.103
+
+python
+
+from yaks import *
+from papero import Property
+
+def obs(kvs):
+    print('Called OBSERVER KVS: {}'.format(kvs))
+
+def evcb(path, param):
+    print('W3-Executing eval on {}'.format(path))
+    return Value('executed {}'.format(param))
+
+y = Yaks.login('127.0.0.1')
+adm = y.admin()
+s = adm.add_storage('W3-Store', [Property('selector', '/demo/w3/**')], beid='Memory')
+ws = y.workspace('/demo/w3') 
+
+sid = ws.subscribe('/demo/w3/**', obs)
+
+ws.register_eval('/demo/compute3', evcb)
+
+ws.put('/demo/w1/uno', Value('w1-uno'))
+ws.put('/demo/w2/due', Value('ac-due'))
+ws.put('/demo/w3/tre', Value('ac-tre'))
+ws.get('/demo/**')
+
+
+
+
+
+// deactivate if you want leave the Python environment
+
+deactivate
+
