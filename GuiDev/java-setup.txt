@@ -1,0 +1,64 @@
+
+--------- Setting up Java ----------
+
+1. Add the PPA.
+  sudo add-apt-repository ppa:webupd8team/java
+
+2. install Java
+  sudo apt update; sudo apt install oracle-java8-installer
+  or
+  sudo apt-get install openjdk-7-jdk
+
+3. Check Java version
+  javac -version
+  java -version
+
+4. Set Java environment variables
+  sudo apt install oracle-java8-set-default
+
+---------- Setting up Eclipse ----------
+
+5. install Eclipse
+5.1 -- remove the old Eclipse in case they were installed before
+  sudo apt-get remove eclipse eclipse-platform
+
+5.2 -- download Eclipse and install
+  tar -xzvf <path/to/your-tar-file>
+  tar -xzvf eclipse-java-luna-SR1-linux-gtk-x86_64.tar.gz
+
+5.3 Increase the memory for the Eclipse installation by modifying the ~/eclipse/eclipse.ini file.
+Change the -Xmx setting (line 20) to be AT least 1G, recommended 2GB. (i.e. -Xmx2048m).
+Change the -XX:MaxPermSize (line 18) to at most 512m. If you have the -Xmx setting set to 1G, then I suggest to use a lower value, for example 300m.
+
+6. run Eclipse
+
+  $ ~/eclipse/eclipse
+
+
+--------------- Setting up Maven ----------------
+
+1. sudo apt-get update; sudo apt-get install maven
+2. mvn -version
+
+-------------- Setting up git --------------
+
+  sudo apt-get install git
+
+--------------- Setting Up IntelliJ IDEA ---------------
+  wget https://www.jetbrains.com/idea/download/ideaIC-2017.1.tar.gz
+  tar xzvf ideaIC-2017.1.tar.gz
+  cd idea-IC-171.3780.107
+  ls bin
+  ./bin/idea.sh
+  // thru putty / XMing (XServer on Windows) to bring up the IDEA GUI
+
+
+--------------- Setting up Flink (Local) ---------------
+
+1. Downloading Flink 
+   wget http://apache.cs.utah.edu/flink/flink-1.2.0/flink-1.2.0-bin-hadoop2-scala_2.11.tgz
+   tar xzvf flink-1.2.0-bin-hadoop2-scala_2.11.tgz
+
+2. Use ./bin/ flink scripts to play various setup
+   bin/start-scala-shell.sh local -- this will start REPL Scala shell 
+

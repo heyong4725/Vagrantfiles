@@ -1,0 +1,40 @@
+
+### Prepare
+
+sudo apt-get update
+sudo apt-get install -y tcl build-essential software-properties-common
+
+### download Redis and build it
+
+git clone https://github.com/antirez/redis.git
+cd redis
+make
+make test
+
+
+### run Redis
+# start redis-server first
+
+cd src
+./redis-server
+
+# if want to take configuration file
+./redis-server /path/to/redis.conf
+
+./redis-server --port 9999 --slaveof 127.0.0.1 6379
+./redis-server /etc/redis/6379.conf --loglevel debug
+
+
+# play with redis-client
+cd src
+./redis-cli
+
+
+
+
+
+
+
+
+
+

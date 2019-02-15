@@ -1,0 +1,40 @@
+    1  sudo apt-get update
+    2  sudo apt-get install -y build-essential autoconf automake libtool curl unzip pkg-config wget
+    3  sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
+    4  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+    5  sudo apt-key fingerprint 0EBFCD88
+    6  sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+    7  sudo apt-get update
+   17  sudo apt-get install docker-ce
+   18  sudo docker run hello-world
+   20  sudo docker run -it ubuntu bash
+   21  sudo docker --version
+   22  sudo docker info
+   23  curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube
+   24  ls
+   25  sudo cp minikube /usr/local/bin/ && rm minikube
+   26  curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+   27  chmod +x kubectl && sudo cp kubectl /usr/local/bin/
+   28  ls
+   29  rm kubectl
+   30  export MINIKUBE_WANTUPDATENOTIFICATION=false
+   31  export MINIKUBE_WANTREPORTERRORPROMPT=false
+   32  export MINIKUBE_HOME=$HOME
+   33  export CHANGE_MINIKUBE_NONE_USER=true
+   34  echo $HOME
+   35  pwd
+   36  mkdir -p $HOME/.kube
+   37  touch $HOME/.kube/config
+   38  export KUBECONFIG=$HOME/.kube/config
+   39  sudo -E minikube start --vm-driver=none
+   40  for i in {1..150}; do # timeout for 5 minutes    kubectl get po &> /dev/null;    if [ $? -ne 1 ]; then       break;    fi;    sleep 2; done
+   41  kubectl run hello-minikube --image=k8s.gcr.io/echoserver:1.4 --port=8080
+   42  kubectl expose deployment hello-minikube --type=NodePort
+   43  kubectl get pod
+   44  curl $(minikube service hello-minikube --url)
+   45  minikube info
+   46  minikube --help
+   47  minikube version
+   48  kubectl delete deployment hello-minikube
+   49  minikube stop
+   50  history > /vagrant/history.txt

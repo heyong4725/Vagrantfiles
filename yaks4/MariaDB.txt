@@ -1,0 +1,46 @@
+27  ./bin/zenohd &
+   
+28  ./bin/yaksd --zenoh=tcp/127.0.0.1:7447 &
+   
+29  sudo yum install mariadb-server
+   
+30  sudo systemctl start mariadb
+   
+31  sudo systemctl status mariadb
+   
+32  ./bin/yaksd --zenoh=tcp/127.0.0.1:7447 &
+   
+33  yum install MariaDB-shared
+   
+34  sudo yum install MariaDB-shared
+   
+35  sudo yum -y update
+   
+36  sudo yum install MariaDB-shared
+   
+37  sudo yum install MariaDB-server MariaDB-client MariaDB-devel MariaDB-shared
+   
+38  sudo systemctl stop mariadb
+   
+39  sudo systemctl status mariadb
+   
+40  vi /etc/yum.repos.d/MariaDB.repo
+   
+41  sudo vi /etc/yum.repos.d/MariaDB.repo
+   
+42  sudo yum list|grep  MariaDB-server
+   
+43  sudo rpm --import https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+   
+44  sudo yum install MariaDB-server MariaDB-client MariaDB-devel MariaDB-shared
+   
+45  sudo systemctl start mariadb
+   
+46  ./bin/yaksd --zenoh=tcp/127.0.0.1:7447 &
+   
+47  sudo yum install mariadb-libs
+   
+48  ./bin/yaksd --zenoh=tcp/127.0.0.1:7447 &
+   
+49  history
+(poc) [vagrant@worker-01 yaks-0.2.4]$ 

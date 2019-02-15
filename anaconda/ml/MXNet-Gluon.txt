@@ -1,0 +1,521 @@
+
+#### Complete ML Pipeline
+# ETL --> Feature Engineering --> Model Training --> Model Evaluation --> Deploy & Operationalize Models
+# --> Score and update models
+
+###### MXNet #####
+# MXNet is a scalable open source deep learning framework with a broad base of support.
+# https://www.oreilly.com/ideas/uncovering-hidden-patterns-through-machine-learning
+# 
+
+pip install mxnet --upgrade --pre
+python
+
+#import libraries
+import numpy as np
+import mxnet as mx
+import os
+mx.random.seed(1)
+
+#Define the context to be CPU, In mxnet, every array has a context - either on a CPU or GPU
+ctx = mx.cpu()
+
+# 
+#function to encode the integer to its binary representation
+def binary_encode(i, num_digits):
+    return np.array([i >> d & 1 for d in range(num_digits)])
+
+#function to encode the target into multi-class
+def fizz_buzz_encode(i):
+    if i % 15 == 0: 
+        return 0
+    elif i % 5  == 0: 
+        return 1
+    elif i % 3  == 0: 
+        return 2
+    else:             
+        return 3
+
+#Given prediction, map it to the correct output label
+def fizz_buzz(i, prediction):
+    if prediction == 0:
+        return "fizzbuzz"
+    elif prediction == 1:
+        return "buzz"
+    elif prediction == 2:
+        return "fizz"
+    else:
+        return str(i)
+
+#Number of integers to generate
+MAX_NUMBER = 100000
+
+#The input feature vector is determined by NUM_DIGITS
+NUM_DIGITS = np.log2(MAX_NUMBER).astype(np.int)+1
+
+
+# Generate training dataset - both features and labels
+trainX = np.array([binary_encode(i, NUM_DIGITS) for i in range(101, np.int(MAX_NUMBER/2))])
+trainY = np.array([fizz_buzz_encode(i)          for i in range(101, np.int(MAX_NUMBER/2))])
+
+# Generate validation dataset - both features and labels
+valX = np.array([binary_encode(i, NUM_DIGITS) for i in range(np.int(MAX_NUMBER/2), MAX_NUMBER)])
+valY = np.array([fizz_buzz_encode(i)          for i in range(np.int(MAX_NUMBER/2), MAX_NUMBER)])
+
+#  Generate test dataset - both features and labels
+testX = np.array([binary_encode(i, NUM_DIGITS) for i in range(1, 101)])
+testY = np.array([fizz_buzz_encode(i)          for i in range(1, 101)])
+
+
+# Define the parameters
+batch_size = 100
+num_inputs = NUM_DIGITS
+num_outputs = 4
+
+# Create iterator for train, test and validation datasets
+train_data = mx.io.NDArrayIter(trainX, trainY, batch_size, shuffle=True)
+val_data = mx.io.NDArrayIter(valX, valY, batch_size, shuffle=True)
+test_data = mx.io.NDArrayIter(testX, testY, batch_size, shuffle=False)
+
+# Function to evaluate accuracy of the model
+def evaluate_accuracy(data_iterator, net):
+    acc = mx.metric.Accuracy()
+    data_iterator.reset()
+    for i, batch in enumerate(data_iterator):
+        data = batch.data[0].as_in_context(ctx)
+        label = batch.label[0].as_in_context(ctx)
+        output = net(data)
+        predictions = nd.argmax(output, axis=1)
+        acc.update(preds=predictions, labels=label)
+    return predictions,acc.get()[1]
+
+
+#import autograd package
+from mxnet import autograd, nd
+
+##### Logistic Regression ####
+
+#Initialize the weight and bias matrix
+#weights matrix
+W = nd.random_normal(shape=(num_inputs, num_outputs))
+
+#bias matrix
+b = nd.random_normal(shape=num_outputs)
+
+#Model parameters
+params = [W, b]
+
+# attach the autograd to calculate each parameter's gradient
+for param in params:
+    param.attach_grad()
+
+# The sum of the probabilities should sum to one 
+def softmax(y_linear):
+    exp = nd.exp(y_linear-nd.max(y_linear))
+    norms = nd.sum(exp, axis=0, exclude=True).reshape((-1,1))
+    return exp / norms
+
+    
+#loss function
+def softmax_cross_entropy(yhat, y):
+    return - nd.nansum(y * nd.log(yhat), axis=0, exclude=True)
+
+# define the model
+def net(X):
+    y_linear = nd.dot(X, W) + b
+    yhat = softmax(y_linear)
+    return yhat
+
+#Define the optimizer
+def SGD(params, lr):
+    for param in params:
+        param[:] = param - lr * param.grad
+
+#hyper parameters for the training
+epochs = 100
+learning_rate = .01
+smoothing_constant = .01
+
+# execute the training function
+#the training and validation accuracies are computed
+
+for e in range(epochs):
+    #at the start of each epoch, the train data iterator is reset
+    train_data.reset()
+    for i, batch in enumerate(train_data):
+        data = batch.data[0].as_in_context(ctx)
+        label = batch.label[0].as_in_context(ctx)
+        label_one_hot = nd.one_hot(label, 4)
+        with autograd.record():
+            output = net(data)
+            loss = softmax_cross_entropy(output, label_one_hot)
+        loss.backward()
+        SGD(params, learning_rate)
+        curr_loss = nd.mean(loss).asscalar()
+        moving_loss = (curr_loss if ((i == 0) and (e == 0)) 
+                           else (1 - smoothing_constant) * moving_loss + (smoothing_constant) * curr_loss)
+    _,val_accuracy = evaluate_accuracy(val_data, net)
+    _,train_accuracy = evaluate_accuracy(train_data, net)
+    print("Epoch %s. Loss: %s, Train_acc %s, Val_acc %s" % (e, moving_loss, train_accuracy, val_accuracy))
+
+#model accuracy on the test dataset
+predictions,test_accuracy = evaluate_accuracy(test_data, net)
+output = np.vectorize(fizz_buzz)(np.arange(1, 101), predictions.asnumpy().astype(np.int))
+print(output)
+print("Test Accuracy : ",test_accuracy)
+
+
+##### MLP #####
+# training and test result are not good, let's using MLP model with MXNet Gluon API
+
+#import gluon
+from mxnet import gluon
+
+#reset the training, test and validation iterators
+train_data.reset()
+val_data.reset()
+test_data.reset()
+
+#Define number of neurons in each hidden layer
+num_hidden = 64
+#Define the sequential network
+net = gluon.nn.Sequential()
+
+with net.name_scope():
+    net.add(gluon.nn.Dense(num_inputs, activation="relu"))
+    net.add(gluon.nn.Dense(num_hidden, activation="relu"))
+    net.add(gluon.nn.Dense(num_hidden, activation="relu"))
+    net.add(gluon.nn.Dense(num_outputs))
+
+#initialize parameters
+net.collect_params().initialize(mx.init.Xavier(magnitude=2.24), ctx=ctx)
+
+#define the loss function
+loss = gluon.loss.SoftmaxCrossEntropyLoss()
+
+#Define the optimizer
+trainer = gluon.Trainer(net.collect_params(), 'sgd', {'learning_rate': .02,'momentum':0.9})
+
+# let's train the MLP model
+#define variables/hyper-paramters
+epochs = 100
+moving_loss = 0.
+best_accuracy = 0.
+best_epoch = -1
+
+#train & eval the model
+
+for e in range(epochs):
+    train_data.reset()
+    for i, batch in enumerate(train_data):
+        data = batch.data[0].as_in_context(ctx)
+        label = batch.label[0].as_in_context(ctx)
+        with autograd.record():
+            output = net(data)
+            cross_entropy = loss(output, label)
+            cross_entropy.backward()
+        trainer.step(data.shape[0])
+        if i == 0:
+            moving_loss = nd.mean(cross_entropy).asscalar()
+        else:
+            moving_loss = .99 * moving_loss + .01 * nd.mean(cross_entropy).asscalar()
+    _,train_accuracy = evaluate_accuracy(train_data, net)
+    _,val_accuracy = evaluate_accuracy(val_data, net)
+    if val_accuracy > best_accuracy:
+        best_accuracy = val_accuracy
+        if best_epoch!=-1:
+            print('deleting previous checkpoint...')
+            os.remove('mlp-%d.params'%(best_epoch))
+        best_epoch = e
+        print('Best validation accuracy found. Checkpointing...')
+        net.save_params('mlp-%d.params'%(e))
+    print("Epoch %s. Loss: %s, Train_acc %s, Val_acc %s" % (e, moving_loss, train_accuracy, val_accuracy))
+
+#Load the parameters using test data set
+net.load_params('mlp-%d.params'%(best_epoch), ctx)
+
+#predict on the test dataset
+predictions,test_accuracy = evaluate_accuracy(test_data, net)
+output = np.vectorize(fizz_buzz)(np.arange(1, 101), predictions.asnumpy().astype(np.int))
+print(output)
+print("Test Accuracy : ",test_accuracy)
+
+
+################################## CNN ###########################################
+## Logo detection using MXNet
+## https://www.oreilly.com/ideas/logo-detection-using-apache-mxnet?imm_mid=0fb1e0&cmp=em-data-na-na-newsltr_ai_20180212
+
+
+import mxnet as mx
+import cv2
+from pathlib import Path
+import os
+from time import time
+import shutil
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+### Download the image dataset
+
+%%capture
+!wget -nc <flickrlogos-url> # Replace with the URL to the dataset
+!unzip -n ./FlickrLogos-32_dataset_v2.zip
+
+data_directory = "./FlickrLogos-v2/"
+
+train_logos_list_filename = data_directory+"trainset.relpaths.txt"
+val_logos_list_filename = data_directory+"valset-logosonly.relpaths.txt"
+val_nonlogos_list_filename = data_directory+"valset-nologos.relpaths.txt"
+test_list_filename = data_directory+"testset.relpaths.txt"
+
+# List of train images 
+with open(train_logos_list_filename) as f:
+    train_logos_filename = f.read().splitlines()
+
+# List of validation images without logos
+with open(val_nonlogos_list_filename) as f:
+    val_nonlogos_filename = f.read().splitlines()
+
+# List of validation images with logos    
+with open(val_logos_list_filename) as f:
+    val_logos_filename = f.read().splitlines()
+
+# List of test images 
+with open(test_list_filename) as f:
+    test_filenames = f.read().splitlines()
+
+train_filenames = train_logos_filename + val_nonlogos_filename[0:int(len(val_nonlogos_filename)/2)]    
+
+val_filenames = val_logos_filename + val_nonlogos_filename[int(len(val_nonlogos_filename)/2):]
+
+print("Number of Training Images : ",len(train_filenames))
+print("Number of Validation Images : ",len(val_filenames))
+print("Number of Testing Images : ",len(test_filenames))
+
+def prepare_datesets(base_directory,filenames,dest_folder_name):
+    for filename in filenames:
+        image_src_path = base_directory+filename 
+        image_dest_path = image_src_path.replace('classes/jpg',dest_folder_name)
+        dest_directory_path = Path(os.path.dirname(image_dest_path))
+        dest_directory_path.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(image_src_path, image_dest_path)
+
+prepare_datesets(base_directory=data_directory,filenames=train_filenames,dest_folder_name='train_data')
+prepare_datesets(base_directory=data_directory,filenames=val_filenames,dest_folder_name='val_data')
+prepare_datesets(base_directory=data_directory,filenames=test_filenames,dest_folder_name='test_data')
+
+batch_size = 40
+num_classes = 33
+num_epochs = 20
+num_gpu = 1
+ctx = [mx.gpu(i) for i in range(num_gpu)]
+
+train_augs = [
+    mx.image.HorizontalFlipAug(.5),
+    mx.image.RandomCropAug((224,224))
+]
+
+
+val_test_augs = [
+    mx.image.CenterCropAug((224,224))
+]
+
+
+# from (H x W x c) to (c x H x W)
+
+def transform(data, label, augs):
+    data = data.astype('float32')
+    for aug in augs:
+        data = aug(data)
+    data = mx.nd.transpose(data, (2,0,1))
+    return data, mx.nd.array([label]).asscalar().astype('float32')
+
+
+train_imgs = mx.gluon.data.vision.ImageFolderDataset(
+    data_directory+'train_data',
+    transform=lambda X, y: transform(X, y, train_augs))
+
+val_imgs = mx.gluon.data.vision.ImageFolderDataset(
+    data_directory+'val_data',
+    transform=lambda X, y: transform(X, y, val_test_augs))
+
+
+test_imgs = mx.gluon.data.vision.ImageFolderDataset(
+    data_directory+'test_data',
+    transform=lambda X, y: transform(X, y, val_test_augs))
+
+
+train_data = mx.gluon.data.DataLoader(train_imgs, batch_size,num_workers=1, shuffle=True)
+val_data = mx.gluon.data.DataLoader(val_imgs, batch_size, num_workers=1)
+test_data = mx.gluon.data.DataLoader(test_imgs, batch_size, num_workers=1)
+
+
+def show_images(imgs, nrows, ncols, figsize=None):
+    """plot a grid of images"""
+    figsize = (ncols, nrows)
+    _, figs = plt.subplots(nrows, ncols, figsize=figsize)
+    for i in range(nrows):
+        for j in range(ncols):
+            figs[i][j].imshow(imgs[i*ncols+j].asnumpy())
+            figs[i][j].axes.get_xaxis().set_visible(False)
+            figs[i][j].axes.get_yaxis().set_visible(False)
+    plt.show()
+
+# from (B x c x H x W) to (Bx H x W x c)
+for X, _ in train_data:
+    X = X.transpose((0,2,3,1)).clip(0,255)/255
+    show_images(X, 4, 8)
+    break
+
+
+def _get_batch(batch, ctx):
+    """return data and label on ctx"""
+    data, label = batch
+    return (mx.gluon.utils.split_and_load(data, ctx),
+            mx.gluon.utils.split_and_load(label, ctx),
+            data.shape[0])
+
+def evaluate_accuracy(data_iterator, net, ctx):
+    acc = mx.nd.array([0])
+    n = 0.
+    for batch in data_iterator:
+        data, label, batch_size = _get_batch(batch, ctx)
+        for X, y in zip(data, label):
+            acc += mx.nd.sum(net(X).argmax(axis=1)==y).copyto(mx.cpu())
+            n += y.size
+        acc.wait_to_read()
+    return acc.asscalar() / n
+
+
+# train & eval the model
+
+def train(net, ctx, train_data, val_data, test_data, batch_size, num_epochs, model_prefix, hybridize=False, learning_rate=0.01, wd=0.001):
+    net.collect_params().reset_ctx(ctx)
+    if hybridize == True:
+        net.hybridize()
+    loss = mx.gluon.loss.SoftmaxCrossEntropyLoss()
+    trainer = mx.gluon.Trainer(net.collect_params(), 'sgd', {
+        'learning_rate': learning_rate, 'wd': wd})
+    best_epoch = -1
+    best_acc = 0.0
+    if isinstance(ctx, mx.Context):
+        ctx = [ctx]
+    for epoch in range(num_epochs):
+        train_loss, train_acc, n = 0.0, 0.0, 0.0
+        start = time()
+        for i, batch in enumerate(train_data):
+            data, label, batch_size = _get_batch(batch, ctx)
+            losses = []
+            with mx.autograd.record():
+                outputs = [net(X) for X in data]
+                losses = [loss(yhat, y) for yhat, y in zip(outputs, label)]
+            for l in losses:
+                l.backward()
+            train_loss += sum([l.sum().asscalar() for l in losses])
+            trainer.step(batch_size)
+            n += batch_size
+        train_acc = evaluate_accuracy(train_data, net, ctx)
+        val_acc = evaluate_accuracy(val_data, net, ctx)
+        test_acc = evaluate_accuracy(test_data, net, ctx)
+        print("Epoch %d. Loss: %.3f, Train acc %.2f, Val acc %.2f, Test acc %.2f, Time %.1f sec" % (
+                epoch, train_loss/n, train_acc, val_acc, test_acc, time() - start
+	        ))
+        if val_acc > best_acc:
+            best_acc = val_acc
+            if best_epoch!=-1:
+                print('Deleting previous checkpoint...')
+                os.remove(model_prefix+'-%d.params'%(best_epoch))
+            best_epoch = epoch
+            print('Best validation accuracy found. Checkpointing...')
+            net.collect_params().save(model_prefix+'-%d.params'%(epoch))
+
+
+# download and show the image
+def get_image(url, show=False):
+    fname = mx.test_utils.download(url)
+    img = cv2.cvtColor(cv2.imread(fname), cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, (224, 224))
+    plt.imshow(img)
+    return fname
+
+# inference
+
+def classify_logo(net, url):
+    fname = get_image(url)
+    with open(fname, 'rb') as f:
+        img = mx.image.imdecode(f.read())
+    data, _ = transform(img, -1, val_test_augs)
+    data = data.expand_dims(axis=0)
+    out = net(data.as_in_context(ctx[0]))
+    out = mx.nd.SoftmaxActivation(out)
+    pred = int(mx.nd.argmax(out, axis=1).asscalar())
+    prob = out[0][pred].asscalar()
+    label = train_imgs.synsets
+    return 'With prob=%f, %s'%(prob, label[pred])
+
+# CNN DL network
+
+cnn_net = mx.gluon.nn.Sequential()
+with cnn_net.name_scope():
+    #  First convolutional layer
+    cnn_net.add(mx.gluon.nn.Conv2D(channels=96, kernel_size=11, strides=(4,4), activation='relu'))
+    cnn_net.add(mx.gluon.nn.MaxPool2D(pool_size=3, strides=2))
+    #  Second convolutional layer
+    cnn_net.add(mx.gluon.nn.Conv2D(channels=192, kernel_size=5, activation='relu'))
+    cnn_net.add(mx.gluon.nn.MaxPool2D(pool_size=3, strides=(2,2)))
+    # Flatten and apply fullly connected layers
+    cnn_net.add(mx.gluon.nn.Flatten())
+    cnn_net.add(mx.gluon.nn.Dense(4096, activation="relu"))
+    cnn_net.add(mx.gluon.nn.Dense(num_classes))
+
+
+# let's initialize the weights of the network. We will use the Xavier initalizer
+cnn_net.collect_params().initialize(mx.init.Xavier(magnitude=2.24), ctx=ctx)
+
+# Once the weights are initialized, we can train the model
+train(cnn_net, ctx, train_data, val_data, test_data, batch_size, num_epochs,model_prefix='cnn')
+
+# Collect the parameters of the epoch that had the best validation accuracy and assign it as our model parameters
+cnn_net.collect_params().load('cnn-%d.params'%(5),ctx)
+
+# check how the model performs on new data
+img_url = "http://sophieswift.com/wp-content/uploads/2017/09/pleasing-ideas-bmw-cake-and-satisfying-some-bmw-themed-cakes-crustncakes-delicious-cakes-128x128.jpg"
+classify_logo(cnn_net, img_url)
+
+
+mg_url = "https://dtgxwmigmg3gc.cloudfront.net/files/59cdcd6f52ba0b36b5024500-icon-256x256.png"
+classify_logo(cnn_net, img_url)
+
+# result not good with small data set, transfer learning using some pre-trained model
+
+# first download the pre-trained model
+from mxnet.gluon.model_zoo import vision as models
+pretrained_net = models.resnet18_v2(pretrained=True)
+
+# randomly initialize the weights for the output layer
+finetune_net = models.resnet18_v2(classes=num_classes)
+finetune_net.features = pretrained_net.features
+finetune_net.output.initialize(mx.init.Xavier(magnitude=2.24))
+
+# train again using pre-trained model
+train(finetune_net, ctx, train_data, val_data, test_data, batch_size, num_epochs,model_prefix='ft',hybridize = True)
+
+# much better result
+# collect the parameters from the corresponding checkpoint of the 16th epoch and use it as the final model
+# The model's parameters are now set to the values at the 16th epoch
+finetune_net.collect_params().load('ft-%d.params'%(16),ctx)
+
+# Evaluating the predictions
+img_url = "http://sophieswift.com/wp-content/uploads/2017/09/pleasing-ideas-bmw-cake-and-satisfying-some-bmw-themed-cakes-crustncakes-delicious-cakes-128x128.jpg"
+classify_logo(finetune_net, img_url)
+
+img_url = "https://dtgxwmigmg3gc.cloudfront.net/files/59cdcd6f52ba0b36b5024500-icon-256x256.png"
+classify_logo(finetune_net, img_url)
+
+
+
+
+
+
+
+

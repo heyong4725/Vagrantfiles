@@ -1,0 +1,93 @@
+
+### steps to build Ubuntu MapD Core ###
+
+# update the kernel
+sudo apt update
+sudo apt upgrade
+sudo apt install apt-transport-https
+sudo apt install -y nvidia-cuda-toolkit
+
+# rebot to activate the latest kernel and nvidia drivers
+sudo reboot
+
+# re-login (after rebooting)
+
+# download the MapD core sources from GitHub (don't use shared directory as VBox does not support hard-link)
+
+git clone https://github.com/mapd/mapd-core.git
+
+# build dependencies
+cd mapd-core
+
+# edit mapd-deps-ubuntu.sh to comment out the EGL library (for OpenGL), somehow VBox couldn't build it
+./scripts/mapd-deps-ubuntu.sh
+
+source /usr/local/mapd-deps/mapd-deps.sh
+
+# build MapD core DB (MapD web document has mkdir build/cd build, it is not necessary)
+
+#mkdir build
+#cd build
+
+ls CMakeLists.txt # this file is important to build dependencies
+
+#default GPU is ON
+
+#cmake -DCMAKE_BUILD_TYPE=debug -DMAPD_IMMERSE_DOWNLOAD=off
+cmake -DMAPD_IMMERSE_DOWNLOAD=off
+make -j 4
+
+# after build, executables are in bin directory
+
+ls bin
+/*
+calcite-1.0-SNAPSHOT-jar-with-dependencies.jar
+DataGen
+generate_cert
+initdb
+mapd-1.0-SNAPSHOT-jar-with-dependencies.jar
+mapdjdbc-1.0-SNAPSHOT-jar-with-dependencies.jar
+mapdql
+mapd_server
+mapd_web_server
+StreamInsert
+StreamInsertSimple
+*/
+
+
+##### test the new build #####
+
+# create the MapD user
+sudo useradd -U mapd
+
+# configure the MapD environment
+
+# edit .bashrc file to add 
+# User specific aliases and functions
+export MAPD_USER=mapd
+export MAPD_GROUP=mapd
+export MAPD_STORAGE=/home/ubuntu/mapd-core
+export MAPD_PATH=/home/ubuntu/mapd-core
+
+# save .bashrc and
+source .bashrc
+
+
+# startup mapd server manually
+mkdir data && ./bin/initdb data
+./bin/mapd_server &
+./bin/mapd_web_server &
+ps -ef | grep mapd # you will see both mapd_server and mapd_web_server are running in the background
+
+# import test data (select 2 for 10K flights data)
+./insert_sample_data
+
+# run SQL console
+./bin/mapdql -p HyperInteractive
+
+SELECT origin_city AS "Origin", dest_city AS "Destination", AVG(airtime) AS
+"Average Airtime" FROM flights_2008_10k WHERE distance < 175 GROUP BY origin_city,
+dest_city;
+
+
+

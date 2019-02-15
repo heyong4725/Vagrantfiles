@@ -1,0 +1,105 @@
+
+# Step 1 Preparing the systems
+
+sudo yum -y update
+sudo yum -y install yum-utils
+sudo yum -y groupinstall development
+sudo yum -y install openssl-devel sqlite-devel
+
+# Step 2 - installing and setup python 3 activate virtual environment
+
+sudo yum -y install https://centos7.iuscommunity.org/ius-release.rpm
+sudo yum -y install python36u
+python3.6 -V
+
+sudo yum -y install python36u-pip
+sudo yum -y install python36u-devel
+
+python3.6 -m venv poc
+source poc/bin/activate
+
+// deactivate if you want leave the Python environment
+
+deactivate
+
+# GitHub SSH setup
+
+ls -al ~/.ssh
+ssh-keygen -t rsa -b 4096 -C "heyong4725@gmail.com"
+ls -al ~/.ssh
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_rsa
+
+vi .ssh/id_rsa.pub
+sudo yum install xclip
+xclip -sel clip < ~/.ssh/id_rsa.pub
+vi .ssh/id_rsa.pub
+
+ls
+ssh -T git@github.com
+
+# MariaDB install
+
+sudo vi /etc/yum.repos.d/MariaDB.repo
+[mariadb]
+name = MariaDB
+baseurl = http://yum.mariadb.org/10.3/centos7-amd64
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgcheck=1
+
+sudo yum clean metadata
+sudo yum list | grep MariaDB-server
+sudo rpm --import https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+sudo yum install MariaDB-server MariaDB-client MariaDB-shared
+
+# opam & OCaml setup
+
+curl -O https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh
+sudo sh install.sh
+sudo yum install bubblewrap
+opam init
+eval $(opam env)
+opam switch create ocaml-base-compiler
+opam install dune
+eval $(opam env)
+
+# setup git access
+git --version
+git config --global user.name "heyong4725"
+git config --global user.email "heyong4725@gmail.com"
+git config --global --list
+
+# clone izenoh, yaks, yaks-dev
+
+git clone https://github.com/atolab/zenoh.git
+cd zenoh
+dune external-lib-deps --missing @all
+opam install atdgen cmdliner fmt logs lwt lwt_ppx ppx_deriving ppx_sexp_conv sexplib
+
+git clone https://github.com/atolab/yaks.git
+cd yaks
+dune external-lib-deps --missing @all
+opam install caqti caqti-driver-mariadb caqti-driver-postgresql
+opam install caqti-driver-sqlite3 caqti-lwt cohttp-lwt cohttp-lwt-unix cstruct ppx_cstruct re uuidm
+
+// atolab packages
+opam install apero-core apero-net apero-time yaks-common zenoh-api
+
+// yaks-dev
+
+// CentOS
+git clone --recursive git@github.com:atolab/yaks-dev.git
+
+// MacOS
+git clone --recursive https://github.com/atolab/yaks-dev.git
+
+cd yaks-dev
+dune external-lib-deps --missing @all
+
+opam install alcotest astring atdgen biniou caqti caqti-driver-mariadb caqti-driver-postgresql caqti-driver-sqlite3 caqti-lwt cmdliner cohttp-lwt cohttp-lwt-unix cstruct fmt logs lwt lwt_ppx ppx_cstruct ppx_deriving ppx_deriving_yojson ppx_monadic ppx_sexp_conv re sexplib uuidm websocket websocket-lwt yojson
+
+// make executables
+make
+./zenohd.sh &
+./yaksd.sh &
+

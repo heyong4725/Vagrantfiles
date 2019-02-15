@@ -1,0 +1,32 @@
+
+# launch anaconda navigator
+# start terminal window (python3)
+bash
+
+export PATH="/c/Program Files/CMake/bin:$PATH"
+
+# more dependencies
+
+pip install imutils 
+pip install opencv-python 
+pip install opencv-contrib-python
+
+pip install jsonpickle
+
+# build YAKS python binding dependencies
+pip install yaks
+
+# build example code face_recognition python dependencies
+pip install face_recognition
+
+
+
+
+
+
+
+
+
+
+
+

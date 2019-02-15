@@ -1,0 +1,28 @@
+Dear Yong,
+
+The link below include the Vision Demo that I showed in Shenzhen along with an build of YAKS for Linux. The build is statically linked thus I hope should run w/o issues. FYI, it was built on an Ubuntu. 
+
+https://www.dropbox.com/s/luop4x6rosy5u73/face-recog.tar.gz?dl=0 
+
+https://www.dropbox.com/s/feww1po6av0vxz0/yaks.tar.gz?dl=0
+
+Take a look at the read-me and let me know if you have any issues. If you want to start YAKS with verbose output do:
+
+./yaksd.exe --verbosity=debug
+
+If you want to see the various parameters, do:
+
+./yaksd.exe --help
+
+
+BTW, in order to be able to run the demo you have to install the python API for YAKS along with all a bunch of python libraries for computer vision, do:
+
+pip3 install yaks
+pip3 install face_recognition
+
+This should probably pull all required dependencies.
+
+Please don¿t hesitate to call me on WhatsApp if you encounter any issues.
+
+Ciao,
+Angelo
